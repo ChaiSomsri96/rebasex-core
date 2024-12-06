@@ -3,8 +3,9 @@ pragma solidity ^0.8.24;
 
 import {IRebaseXPairErrors} from "./IRebaseXPairErrors.sol";
 import {IRebaseXPairEvents} from "./IRebaseXPairEvents.sol";
+import {IRebaseXERC20} from "../IRebaseXERC20/IRebaseXERC20.sol";
 
-interface IRebaseXPair is IRebaseXPairErrors, IRebaseXPairEvents {
+interface IRebaseXPair is IRebaseXPairErrors, IRebaseXPairEvents, IRebaseXERC20 {
     /**
      * @dev A set of liquidity values.
      * @param pool0 The active `token0` liquidity
@@ -40,7 +41,7 @@ interface IRebaseXPair is IRebaseXPairErrors, IRebaseXPairEvents {
      */
     function movingAverageWindow() external view returns (uint32 _movingAverageWindow);
 
-     /**
+    /**
      * @notice Updates the movingAverageWindow parameter of the pair.
      * This can only be called by the Factory address.
      * @param newMovingAverageWindow The new value for movingAverageWindow
@@ -198,19 +199,6 @@ interface IRebaseXPair is IRebaseXPairErrors, IRebaseXPairEvents {
     function setIsPaused(bool isPausedNew) external;
 
     /**
-     * @notice Get the current liquidity values.
-     * @return _pool0 The active `token0` liquidity
-     * @return _pool1 The active `token1` liquidity
-     * @return _reservoir0 The inactive `token0` liquidity
-     * @return _reservoir1 The inactive `token1` liquidity
-     * @return _blockTimestampLast The timestamp of when the price was last updated
-     */
-    function getLiquidityBalances()
-        external
-        view
-        returns (uint112 _pool0, uint112 _pool1, uint112 _reservoir0, uint112 _reservoir1, uint32 _blockTimestampLast);
-
-    /**
      * @notice The current `movingAveragePrice0` value, based on the current block timestamp.
      * @dev This is the `token0` price, time weighted to prevent manipulation.
      *
@@ -227,9 +215,9 @@ interface IRebaseXPair is IRebaseXPairErrors, IRebaseXPairEvents {
      * @param amountIn0 The amount of `token0` that should be transferred in from the user
      * @param amountIn1 The amount of `token1` that should be transferred in from the user
      * @param to The account that receives the newly minted liquidity tokens
-     * @return liquidityOut The amount of liquidity tokens minted
+     * @return liquidityOut THe amount of liquidity tokens minted
      */
-    function mint(uint256 amountIn0, uint256 amountIn1, address to) external returns (uint256 liquidityOut);   
+    function mint(uint256 amountIn0, uint256 amountIn1, address to) external returns (uint256 liquidityOut);
 
     /**
      * @notice Mints new liquidity tokens to `to` based on how much `token0` or `token1` has been deposited.
@@ -276,4 +264,84 @@ interface IRebaseXPair is IRebaseXPairErrors, IRebaseXPairEvents {
      * @param to The account that receives the swap output
      */
     function swap(uint256 amountIn0, uint256 amountIn1, uint256 amountOut0, uint256 amountOut1, address to) external;
+
+    /**
+     * @notice The minimum price, p_{L}, in Bps form for the pair.
+     * @return _plBps The value of the p_{L} in basis points
+     */
+    function plBps() external view returns (uint16 _plBps);
+
+    /**
+     * @notice Returns the fee for the pair.
+     * @return _feeBps The fee in bps
+     */
+    function feeBps() external view returns (uint16 _feeBps);
+
+    /**
+     * @notice Returns the protocol fee for the pair.
+     * @return _protocolFeeMbps The protocol fee in milli-bps (multiplied by 10^7)
+     */
+    function protocolFeeMbps() external view returns (uint24 _protocolFeeMbps);
+
+    /**
+     * @notice Updates protocolFeeMbps for the pair.
+     * This can only be called by the Factory address. Must be less than or equal to feeBps * 1000.
+     * @param newProtocolFeeMbps The new protocol fee in mill-bps
+     */
+    function setProtocolFeeMbps(uint24 newProtocolFeeMbps) external;
+
+    /**
+     * @notice Amount of time before any of the basin unlocks into the pools and reservoir from the the time of the last swap
+     * @return _minBasinDuration The value of minBasinDuration
+     */
+    function minBasinDuration() external view returns (uint32 _minBasinDuration);
+
+    /**
+     * @notice Updates the minBasinDuration for the pair.
+     * This can only be called by the Factory address.
+     * @param newMinBasinDuration The new minBasinDuration value
+     */
+    function setMinBasinDuration(uint32 newMinBasinDuration) external;
+
+    /**
+     * @notice Amount of time before all of the basin unlocks into the pools and reservoir from the the time of the last swap
+     * @return _maxBasinDuration The value of maxBasinDuration
+     */
+    function maxBasinDuration() external view returns (uint32 _maxBasinDuration);
+
+    /**
+     * @notice Updates the maxBasinDuration for the pair.
+     * This can only be called by the Factory address.
+     * @param newMaxBasinDuration The new maxBasinDuration value
+     */
+    function setMaxBasinDuration(uint32 newMaxBasinDuration) external;
+
+    /**
+     * @notice Returns the current spot price of the pair.
+     * @return price The current spot price of the pair
+     */
+    function currentPrice() external view returns (uint256 price);
+
+    /**
+     * @notice Get the current liquidity values.
+     * @return _pool0 The active `token0` liquidity
+     * @return _pool1 The active `token1` liquidity
+     * @return _reservoir0 The inactive `token0` liquidity
+     * @return _reservoir1 The inactive `token1` liquidity
+     * @return _basin0 The temporarily locked `token0` liquidity
+     * @return _basin1 The temporarily locked `token1` liquidity
+     * @return _blockTimestampLast The timestamp of when the price was last updated
+     */
+    function getLiquidityBalances()
+        external
+        view
+        returns (
+            uint112 _pool0,
+            uint112 _pool1,
+            uint112 _reservoir0,
+            uint112 _reservoir1,
+            uint112 _basin0,
+            uint112 _basin1,
+            uint32 _blockTimestampLast
+        );
 }
