@@ -13,7 +13,7 @@ interface IRebaseXFactoryErrors {
     error TokenZeroAddress();
 
     /**
-     * @notice The given tokens already have a {ButtonswapPair} instance
+     * @notice The given tokens already have a {RebaseXPair} instance
      */
     error PairExists();
 

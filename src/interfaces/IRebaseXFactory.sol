@@ -59,13 +59,13 @@ interface IRebaseXFactory is IRebaseXFactoryErrors, IRebaseXFactoryEvents {
     function supportedCategoriesLength() external view returns (uint256 count);
 
     /**
-     * @notice Creates a new {ButtonswapPair} instance for the given unsorted tokens `tokenA` and `tokenB`.
+     * @notice Creates a new {RebaseXPair} instance for the given unsorted tokens `tokenA` and `tokenB`.
      * @dev The tokens are sorted later, but can be provided to this method in either order.
      * @param tokenA The first unsorted token address
      * @param tokenB The second unsorted token address
      * @param plBps The pL value in bps
      * @param feeBps The fee value in bps
-     * @return pair The address of the new {ButtonswapPair} instance
+     * @return pair The address of the new {RebaseXPair} instance
      */
     function createPair(address tokenA, address tokenB, uint16 plBps, uint16 feeBps) external returns (address pair);
 

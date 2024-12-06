@@ -8,7 +8,7 @@ interface IRebaseXFactoryEvents {
      * @param token1 The second sorted token
      * @param plBps The pL value in bps
      * @param feeBps The fee value in bps
-     * @param pair The address of the new {ButtonswapPair} contract
+     * @param pair The address of the new {RebaseXPair} contract
      * @param count The new total number of Pairs created
      */
     event PairCreated(
