@@ -1,24 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-interface IRebaseXPairEvents {
-    /**
-     * @notice Emitted when the allowance of a `spender` for an `owner` is set by a call to {IRebaseXERC20-approve}.
-     * `value` is the new allowance.
-     * @param owner The account that has granted approval
-     * @param spender The account that has been given approval
-     * @param value The amount the spender can transfer
-     */
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+import {IRebaseXERC20Events} from "../IRebaseXERC20/IRebaseXERC20Events.sol";
 
-    /**
-     * @notice Emitted when `value` tokens are moved from one account (`from`) to another (`to`).
-     * @param from The account that sent the tokens
-     * @param to The account that received the tokens
-     * @param value The amount of tokens transferred
-     */
-    event Transfer(address indexed from, address indexed to, uint256 value);
-
+interface IRebaseXPairEvents is IRebaseXERC20Events {
     /**
      * @notice Emitted when a {IRebaseXPair-mint} is performed.
      * Some `token0` and `token1` are deposited in exchange for liquidity tokens representing a claim on them.
