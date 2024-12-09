@@ -124,4 +124,55 @@ contract RebaseXERC20 is IRebaseXERC20 {
     function symbol() external view virtual override returns (string memory _symbol) {
         _symbol = "RX";
     }
+
+    /**
+     * @inheritdoc IRebaseXERC20
+     */
+    function approve(address spender, uint256 value) external returns (bool success) {
+        _approve(msg.sender, spender, value);
+        success = true;
+    }
+
+    /**
+     * @inheritdoc IRebaseXERC20
+     */
+    function transfer(address to, uint256 value) external returns (bool success) {
+        _transfer(msg.sender, to, value);
+        success = true;
+    }
+
+    /**
+     * @inheritdoc IRebaseXERC20
+     */
+    function transferFrom(address from, address to, uint256 value) external returns (bool success) {
+        uint256 allowanceFromSender = allowance[from][msg.sender];
+        if (allowanceFromSender != type(uint256).max) {
+            _approve(from, msg.sender, allowanceFromSender - value);
+        }
+        _transfer(from, to, value);
+        success = true;
+    }
+
+    /**
+     * @inheritdoc IRebaseXERC20
+     */
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external
+    {
+        if (block.timestamp > deadline) {
+            revert PermitExpired();
+        }
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline))
+            )
+        );
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        if (recoveredAddress == address(0) || recoveredAddress != owner) {
+            revert PermitInvalidSignature();
+        }
+        _approve(owner, spender, value);
+    }
 }
