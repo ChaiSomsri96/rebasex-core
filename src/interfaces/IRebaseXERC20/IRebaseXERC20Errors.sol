@@ -10,5 +10,5 @@ interface IRebaseXERC20Errors {
     /**
      * @notice Permit signature invalid
      */
-    error PermitInvalidSignature();   
+    error PermitInvalidSignature();
 }

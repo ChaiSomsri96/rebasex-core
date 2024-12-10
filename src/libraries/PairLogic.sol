@@ -56,5 +56,5 @@ library PairLogic {
                 currentPrice = ((s1 + s4 - s3) * (2 ** 112)) / (s2 + s4 + s3);
             }
         }
-    }      
+    }
 }

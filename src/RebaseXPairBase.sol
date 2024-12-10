@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {IRebaseXPair} from "./interfaces/IRebaseXPair/IRebaseXPair.sol";
+import {IRebaseXFactory} from "./interfaces/IRebaseXFactory/IRebaseXFactory.sol";
 import {RebaseXERC20} from "./RebaseXERC20.sol";
 
 abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
@@ -112,7 +113,7 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
     /**
      * @dev The timestamp of the block that the last swap occurred in.
      */
-    uint32 internal blockTimestampLast;   
+    uint32 internal blockTimestampLast;
 
     /**
      * @inheritdoc IRebaseXPair
@@ -172,5 +173,63 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
             revert Locked();
         }
         unlocked = 0;
+    }
+
+    /**
+     * @dev Calls `_singleSidedTimelock()` before executing the function.
+     */
+    modifier singleSidedTimelock() {
+        _singleSidedTimelock();
+        _;
+    }
+
+    /**
+     * @dev Prevents certain operations from being executed if the price volatility induced timelock has yet to conclude.
+     */
+    function _singleSidedTimelock() internal view {
+        if (block.timestamp < singleSidedTimelockDeadline) {
+            revert SingleSidedTimelock();
+        }
+    }
+
+    /**
+     * @dev Calls `_checkPaused()` before executing the function.
+     */
+    modifier checkPaused() {
+        _checkPaused();
+        _;
+    }
+
+    /**
+     * @dev Prevents operations from being executed if the Pair is currently paused.
+     */
+    function _checkPaused() internal view {
+        if (isPaused == 1) {
+            revert Paused();
+        }
+    }
+
+    /**
+     * @dev Calls `_sendOrRefundFee()` before executing the function.
+     */
+    modifier sendOrRefundFee() {
+        _sendOrRefundFee();
+        _;
+    }
+
+    /**
+     * @dev Called whenever an LP wants to burn their LP tokens to make sure they get their fair share of fees.
+     * If `feeTo` is defined, `balanceOf(address(this))` gets transferred to `feeTo`.
+     * If `feeTo` is not defined, `balanceOf(address(this))` gets burned and the LP tokens all grow in value.
+     */
+    function _sendOrRefundFee() internal {
+        if (balanceOf[address(this)] > 0) {
+            address feeTo = IRebaseXFactory(factory).feeTo();
+            if (feeTo != address(0)) {
+                _transfer(address(this), feeTo, balanceOf[address(this)]);
+            } else {
+                _burn(address(this), balanceOf[address(this)]);
+            }
+        }
     }
 }
