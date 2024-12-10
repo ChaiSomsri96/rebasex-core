@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IRebaseXPair} from "./interfaces/IRebaseXPair/IRebaseXPair.sol";
 import {IRebaseXFactory} from "./interfaces/IRebaseXFactory/IRebaseXFactory.sol";
+import {IRebaseXERC20} from "./interfaces/IRebaseXERC20/IRebaseXERC20.sol";
 import {RebaseXERC20} from "./RebaseXERC20.sol";
 
 abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
@@ -231,5 +232,46 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
                 _burn(address(this), balanceOf[address(this)]);
             }
         }
+    }
+
+    /**
+     * @dev Calls `_onlyFactory()` before executing the function.
+     */
+    modifier onlyFactory() {
+        _onlyFactory();
+        _;
+    }
+
+    /**
+     * @dev Prevents operations from being executed if the caller is not the factory.
+     */
+    function _onlyFactory() internal view {
+        if (msg.sender != factory) {
+            revert Forbidden();
+        }
+    }
+
+    constructor() {
+        factory = msg.sender;
+        IRebaseXFactory.PairCreationParameters memory pairCreationParameters;
+
+        (token0, token1, plBps, feeBps, pairCreationParameters) =
+            IRebaseXFactory(factory).lastCreatedTokensAndParameters();
+        movingAverageWindow = pairCreationParameters.movingAverageWindow;
+        maxVolatilityBps = pairCreationParameters.maxVolatilityBps;
+        minTimelockDuration = pairCreationParameters.minTimelockDuration;
+        maxTimelockDuration = pairCreationParameters.maxTimelockDuration;
+        maxSwappableReservoirLimitBps = pairCreationParameters.maxSwappableReservoirLimitBps;
+        swappableReservoirGrowthWindow = pairCreationParameters.swappableReservoirGrowthWindow;
+        protocolFeeMbps = pairCreationParameters.protocolFeeMbps;
+        minBasinDuration = pairCreationParameters.minBasinDuration;
+        maxBasinDuration = pairCreationParameters.maxBasinDuration;
+    }
+
+    /**
+     * @inheritdoc IRebaseXERC20
+     */
+    function name() external view override(RebaseXERC20, IRebaseXERC20) returns (string memory _name) {
+        _name = IRebaseXFactory(factory).tokenName();
     }
 }
