@@ -67,7 +67,7 @@ interface IRebaseXFactory is IRebaseXFactoryErrors, IRebaseXFactoryEvents {
 
     /**
      * @notice Returns the current state of restricted creation.
-     * If true, then no new pairs, only feeToSetter can create new pairs
+     * If true, then no new pairs, only isCreationRestrictedSetter can create new pairs
      * @return _isCreationRestricted The `isCreationRestricted` state
      */
     function isCreationRestricted() external view returns (bool _isCreationRestricted);
@@ -78,15 +78,6 @@ interface IRebaseXFactory is IRebaseXFactoryErrors, IRebaseXFactoryEvents {
      * @return _isCreationRestrictedSetter The `isCreationRestrictedSetter` address
      */
     function isCreationRestrictedSetter() external view returns (address _isCreationRestrictedSetter);
-
-    /**
-     * @notice Get the (unique) Pair address created for the given combination of `tokenA` and `tokenB`.
-     * If the Pair does not exist then zero address is returned.
-     * @param tokenA The first unsorted token
-     * @param tokenB The second unsorted token
-     * @return pair The address of the Pair instance
-     */
-    function getPair(address tokenA, address tokenB) external view returns (address pair);
 
     /**
      * @notice Get the Pair address at the given `index`, ordered chronologically.
@@ -100,15 +91,6 @@ interface IRebaseXFactory is IRebaseXFactoryErrors, IRebaseXFactoryEvents {
      * @return count The total number of Pairs created
      */
     function allPairsLength() external view returns (uint256 count);
-
-    /**
-     * @notice Creates a new {ButtonswapPair} instance for the given unsorted tokens `tokenA` and `tokenB`.
-     * @dev The tokens are sorted later, but can be provided to this method in either order.
-     * @param tokenA The first unsorted token address
-     * @param tokenB The second unsorted token address
-     * @return pair The address of the new {ButtonswapPair} instance
-     */
-    function createPair(address tokenA, address tokenB) external returns (address pair);
 
     /**
      * @notice Updates the address that receives the protocol fee.
@@ -154,7 +136,7 @@ interface IRebaseXFactory is IRebaseXFactoryErrors, IRebaseXFactoryEvents {
 
     /**
      * @notice Updates the pause state of given Pairs.
-     * This can only be called by the `feeToSetter` address.
+     * This can only be called by the `isPausedSetter` address.
      * @param pairs A list of addresses for the pairs that should be updated
      * @param isPausedNew The new pause state
      */
@@ -173,67 +155,6 @@ interface IRebaseXFactory is IRebaseXFactoryErrors, IRebaseXFactoryEvents {
      * @param _paramSetter The new address
      */
     function setParamSetter(address _paramSetter) external;
-
-    /**
-     * @notice Returns the default value of `movingAverageWindow` used for new pairs.
-     * @return _defaultMovingAverageWindow The `defaultMovingAverageWindow` value
-     */
-    function defaultMovingAverageWindow() external view returns (uint32 _defaultMovingAverageWindow);
-
-    /**
-     * @notice Returns the default value of `maxVolatilityBps` used for new pairs.
-     * @return _defaultMaxVolatilityBps The `defaultMaxVolatilityBps` value
-     */
-    function defaultMaxVolatilityBps() external view returns (uint16 _defaultMaxVolatilityBps);
-
-    /**
-     * @notice Returns the default value of `minTimelockDuration` used for new pairs.
-     * @return _defaultMinTimelockDuration The `defaultMinTimelockDuration` value
-     */
-    function defaultMinTimelockDuration() external view returns (uint32 _defaultMinTimelockDuration);
-
-    /**
-     * @notice Returns the default value of `maxTimelockDuration` used for new pairs.
-     * @return _defaultMaxTimelockDuration The `defaultMaxTimelockDuration` value
-     */
-    function defaultMaxTimelockDuration() external view returns (uint32 _defaultMaxTimelockDuration);
-
-    /**
-     * @notice Returns the default value of `maxSwappableReservoirLimitBps` used for new pairs.
-     * @return _defaultMaxSwappableReservoirLimitBps The `defaultMaxSwappableReservoirLimitBps` value
-     */
-    function defaultMaxSwappableReservoirLimitBps()
-        external
-        view
-        returns (uint16 _defaultMaxSwappableReservoirLimitBps);
-
-    /**
-     * @notice Returns the default value of `swappableReservoirGrowthWindow` used for new pairs.
-     * @return _defaultSwappableReservoirGrowthWindow The `defaultSwappableReservoirGrowthWindow` value
-     */
-    function defaultSwappableReservoirGrowthWindow()
-        external
-        view
-        returns (uint32 _defaultSwappableReservoirGrowthWindow);
-
-    /**
-     * @notice Updates the default parameters used for new pairs.
-     * This can only be called by the `paramSetter` address.
-     * @param newDefaultMovingAverageWindow The new defaultMovingAverageWindow
-     * @param newDefaultMaxVolatilityBps The new defaultMaxVolatilityBps
-     * @param newDefaultMinTimelockDuration The new defaultMinTimelockDuration
-     * @param newDefaultMaxTimelockDuration The new defaultMaxTimelockDuration
-     * @param newDefaultMaxSwappableReservoirLimitBps The new defaultMaxSwappableReservoirLimitBps
-     * @param newDefaultSwappableReservoirGrowthWindow The new defaultSwappableReservoirGrowthWindow
-     */
-    function setDefaultParameters(
-        uint32 newDefaultMovingAverageWindow,
-        uint16 newDefaultMaxVolatilityBps,
-        uint32 newDefaultMinTimelockDuration,
-        uint32 newDefaultMaxTimelockDuration,
-        uint16 newDefaultMaxSwappableReservoirLimitBps,
-        uint32 newDefaultSwappableReservoirGrowthWindow
-    ) external;
 
     /**
      * @notice Updates the `movingAverageWindow` value of given Pairs.
