@@ -274,4 +274,21 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
     function name() external view override(RebaseXERC20, IRebaseXERC20) returns (string memory _name) {
         _name = IRebaseXFactory(factory).tokenName();
     }
+
+    /**
+     * @inheritdoc IRebaseXERC20
+     */
+    function symbol() external view override(RebaseXERC20, IRebaseXERC20) returns (string memory _symbol) {
+        _symbol = IRebaseXFactory(factory).tokenSymbol();
+    }
+
+    /**
+     * @dev Utility function to get the total amount of `token0` and `token1` held by the Pair.
+     * @return total0 The total amount of `token0` held by the Pair
+     * @return total1 The total amount of `token1` held by the Pair
+     */
+    function _getTotals() internal view returns (uint256 total0, uint256 total1) {
+        total0 = IERC20(token0).balanceOf(address(this));
+        total1 = IERC20(token1).balanceOf(address(this));
+    }
 }
