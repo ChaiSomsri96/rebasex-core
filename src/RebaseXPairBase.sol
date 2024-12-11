@@ -800,4 +800,94 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
         }
         emit Burn(msg.sender, liquidityIn, amountOut0, amountOut1, to);
     }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMovingAverageWindow(uint32 newMovingAverageWindow) external onlyFactory {
+        movingAverageWindow = newMovingAverageWindow;
+        emit MovingAverageWindowUpdated(newMovingAverageWindow);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMaxVolatilityBps(uint16 newMaxVolatilityBps) external onlyFactory {
+        maxVolatilityBps = newMaxVolatilityBps;
+        emit MaxVolatilityBpsUpdated(newMaxVolatilityBps);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMinTimelockDuration(uint32 newMinTimelockDuration) external onlyFactory {
+        singleSidedTimelockDeadline =
+            uint120(Math.max(block.timestamp + uint256(minTimelockDuration), uint256(singleSidedTimelockDeadline)));
+        minTimelockDuration = newMinTimelockDuration;
+        emit MinTimelockDurationUpdated(newMinTimelockDuration);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMaxTimelockDuration(uint32 newMaxTimelockDuration) external onlyFactory {
+        singleSidedTimelockDeadline =
+            uint120(Math.min(block.timestamp + uint256(newMaxTimelockDuration), uint256(singleSidedTimelockDeadline)));
+        maxTimelockDuration = newMaxTimelockDuration;
+        emit MaxTimelockDurationUpdated(newMaxTimelockDuration);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMaxSwappableReservoirLimitBps(uint16 newMaxSwappableReservoirLimitBps) external onlyFactory {
+        maxSwappableReservoirLimitBps = newMaxSwappableReservoirLimitBps;
+        emit MaxSwappableReservoirLimitBpsUpdated(newMaxSwappableReservoirLimitBps);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setSwappableReservoirGrowthWindow(uint32 newSwappableReservoirGrowthWindow) external onlyFactory {
+        uint256 oldSwappableReservoirLimitReachesMaxDeadline = uint256(swappableReservoirLimitReachesMaxDeadline);
+        if (oldSwappableReservoirLimitReachesMaxDeadline > block.timestamp) {
+            swappableReservoirLimitReachesMaxDeadline = uint120(
+                block.timestamp
+                    + (
+                        uint256(newSwappableReservoirGrowthWindow)
+                            * ((oldSwappableReservoirLimitReachesMaxDeadline - block.timestamp))
+                            / uint256(swappableReservoirGrowthWindow)
+                    )
+            );
+        }
+        swappableReservoirGrowthWindow = newSwappableReservoirGrowthWindow;
+        emit SwappableReservoirGrowthWindowUpdated(newSwappableReservoirGrowthWindow);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMinBasinDuration(uint32 newMinBasinDuration) external onlyFactory {
+        minBasinDuration = newMinBasinDuration;
+        emit MinBasinDurationUpdated(newMinBasinDuration);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setMaxBasinDuration(uint32 newMaxBasinDuration) external onlyFactory {
+        maxBasinDuration = newMaxBasinDuration;
+        emit MaxBasinDurationUpdated(newMaxBasinDuration);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function setProtocolFeeMbps(uint24 newProtocolFeeMbps) external onlyFactory {
+        if (uint24(feeBps) * 1000 < newProtocolFeeMbps) {
+            revert InvalidFees(feeBps, newProtocolFeeMbps);
+        }
+        protocolFeeMbps = newProtocolFeeMbps;
+        emit ProtocolFeeMbpsUpdated(newProtocolFeeMbps);
+    }
 }

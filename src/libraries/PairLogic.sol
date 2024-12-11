@@ -90,7 +90,7 @@ library PairLogic {
         swappedReservoirAmountA = (amountOutB * (2 ** 112)) / movingAveragePriceA;
         amountOutA = amountOutA + swappedReservoirAmountA;
     }
-    
+
     function getSingleSidedBurnOutputAmountB(
         uint256 totalLiquidity,
         uint256 liquidityIn,
