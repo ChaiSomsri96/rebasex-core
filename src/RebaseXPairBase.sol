@@ -7,6 +7,8 @@ import {IRebaseXERC20} from "./interfaces/IRebaseXERC20/IRebaseXERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {RebaseXERC20} from "./RebaseXERC20.sol";
 import {Math} from "./libraries/Math.sol";
+import {PairLogic} from "./libraries/PairLogic.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
     /**
@@ -355,7 +357,7 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
             adjustedTotal = pool + ((total - pool) * numerator) / (maxBasinDuration - minBasinDuration);
         }
     }
-    
+
     /**
      * @param total0 The total amount of `token0` held by the Pair
      * @param total1 The total amount of `token1` held by the Pair
@@ -560,5 +562,242 @@ abstract contract RebaseXPairBase is IRebaseXPair, RebaseXERC20 {
         _basin0 = uint112(lb.basin0);
         _basin1 = uint112(lb.basin1);
         _blockTimestampLast = blockTimestampLast;
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function movingAveragePrice0() public view returns (uint256 _movingAveragePrice0) {
+        uint32 blockTimestamp = uint32(block.timestamp % 2 ** 32);
+        uint32 timeElapsed;
+        unchecked {
+            // overflow is desired
+            timeElapsed = blockTimestamp - blockTimestampLast;
+        }
+        uint256 currentPrice0 = _price(pool1Last, pool0Last);
+        if (timeElapsed == 0) {
+            _movingAveragePrice0 = movingAveragePrice0Last;
+        } else if (timeElapsed >= movingAverageWindow) {
+            _movingAveragePrice0 = currentPrice0;
+        } else {
+            uint32 _movingAverageWindow = movingAverageWindow;
+            _movingAveragePrice0 = (
+                (movingAveragePrice0Last * (_movingAverageWindow - timeElapsed)) + (currentPrice0 * timeElapsed)
+            ) / _movingAverageWindow;
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function mint(uint256 amountIn0, uint256 amountIn1, address to)
+        external
+        lock
+        checkPaused
+        sendOrRefundFee
+        returns (uint256 liquidityOut)
+    {
+        uint256 _totalSupply = totalSupply;
+        (uint256 total0, uint256 total1) = _getTotals();
+        SafeERC20.safeTransferFrom(IERC20(token0), msg.sender, address(this), amountIn0);
+        SafeERC20.safeTransferFrom(IERC20(token1), msg.sender, address(this), amountIn1);
+        // Use the balance delta as input amounts to ensure feeOnTransfer or similar tokens don't disrupt Pair math
+        amountIn0 = IERC20(token0).balanceOf(address(this)) - total0;
+        amountIn1 = IERC20(token1).balanceOf(address(this)) - total1;
+
+        if (_totalSupply == 0) {
+            liquidityOut = _k(amountIn0, amountIn1) - MINIMUM_LIQUIDITY;
+            // permanently lock the first MINIMUM_LIQUIDITY tokens
+            _mint(address(0), MINIMUM_LIQUIDITY);
+            // Initialize Pair last swap price
+            pool0Last = uint112(amountIn0);
+            pool1Last = uint112(amountIn1);
+            total0Last = uint112(amountIn0);
+            total1Last = uint112(amountIn1);
+            // Initialize timestamp so first price update is accurate
+            blockTimestampLast = uint32(block.timestamp % 2 ** 32);
+            // Initialize moving average to price from initial amounts
+            movingAveragePrice0Last = _price(amountIn1, amountIn0);
+        } else {
+            // Don't need to check that amountIn{0,1} are in the right ratio because the least generous ratio is used
+            //   to determine the liquidityOut value, meaning any tokens that exceed that ratio are donated.
+            // If total0 or total1 are zero (eg. due to negative rebases) then the function call reverts with div by zero
+            liquidityOut =
+                PairLogic.getDualSidedMintLiquidityOutAmount(_totalSupply, amountIn0, amountIn1, total0, total1);
+        }
+
+        if (liquidityOut == 0) {
+            revert InsufficientLiquidityMinted();
+        }
+        _mint(to, liquidityOut);
+        emit Mint(msg.sender, amountIn0, amountIn1, liquidityOut, to);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function mintWithReservoir(uint256 amountIn, address to)
+        external
+        lock
+        checkPaused
+        singleSidedTimelock
+        sendOrRefundFee
+        returns (uint256 liquidityOut)
+    {
+        if (amountIn == 0) {
+            revert InsufficientLiquidityAdded();
+        }
+        uint256 _totalSupply = totalSupply;
+        if (_totalSupply == 0) {
+            revert Uninitialized();
+        }
+        (uint256 total0, uint256 total1) = _getTotals();
+        // Determine current pool liquidity
+        LiquidityBalances memory lb = _getLiquidityBalances(total0, total1);
+        if (lb.pool0 == 0 || lb.pool1 == 0) {
+            revert InsufficientLiquidity();
+        }
+        if (lb.reservoir0 == 0) {
+            // If reservoir0 is empty then we're adding token0 to pair with token1 reservoir liquidity
+            SafeERC20.safeTransferFrom(IERC20(token0), msg.sender, address(this), amountIn);
+            // Use the balance delta as input amounts to ensure feeOnTransfer or similar tokens don't disrupt Pair math
+            amountIn = IERC20(token0).balanceOf(address(this)) - total0;
+
+            // Ensure there's enough reservoir1 liquidity to do this without growing reservoir0
+            LiquidityBalances memory lbNew = _getLiquidityBalances(total0 + amountIn, total1);
+            if (lbNew.reservoir0 > 0) {
+                revert InsufficientReservoir();
+            }
+
+            uint256 swappedReservoirAmount1;
+            (liquidityOut, swappedReservoirAmount1) = PairLogic.getSingleSidedMintLiquidityOutAmountA(
+                _totalSupply, amountIn, total0, total1, movingAveragePrice0()
+            );
+
+            uint256 swappableReservoirLimit = _getSwappableReservoirLimit(lb.pool1);
+            if (swappedReservoirAmount1 > swappableReservoirLimit) {
+                revert SwappableReservoirExceeded();
+            }
+            _updateSwappableReservoirDeadline(lb.pool1, swappedReservoirAmount1);
+        } else {
+            // If reservoir1 is empty then we're adding token1 to pair with token0 reservoir liquidity
+            SafeERC20.safeTransferFrom(IERC20(token1), msg.sender, address(this), amountIn);
+            // Use the balance delta as input amounts to ensure feeOnTransfer or similar tokens don't disrupt Pair math
+            amountIn = IERC20(token1).balanceOf(address(this)) - total1;
+
+            // Ensure there's enough reservoir0 liquidity to do this without growing reservoir1
+            LiquidityBalances memory lbNew = _getLiquidityBalances(total0, total1 + amountIn);
+            if (lbNew.reservoir1 > 0) {
+                revert InsufficientReservoir();
+            }
+
+            uint256 swappedReservoirAmount0;
+            (liquidityOut, swappedReservoirAmount0) = PairLogic.getSingleSidedMintLiquidityOutAmountB(
+                _totalSupply, amountIn, total0, total1, movingAveragePrice0()
+            );
+
+            uint256 swappableReservoirLimit = _getSwappableReservoirLimit(lb.pool0);
+            if (swappedReservoirAmount0 > swappableReservoirLimit) {
+                revert SwappableReservoirExceeded();
+            }
+            _updateSwappableReservoirDeadline(lb.pool0, swappedReservoirAmount0);
+        }
+
+        if (liquidityOut == 0) {
+            revert InsufficientLiquidityMinted();
+        }
+        _mint(to, liquidityOut);
+        if (lb.reservoir0 == 0) {
+            emit Mint(msg.sender, amountIn, 0, liquidityOut, to);
+        } else {
+            emit Mint(msg.sender, 0, amountIn, liquidityOut, to);
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function burn(uint256 liquidityIn, address to)
+        external
+        lock
+        sendOrRefundFee
+        returns (uint256 amountOut0, uint256 amountOut1)
+    {
+        if (liquidityIn == 0) {
+            revert InsufficientLiquidityBurned();
+        }
+        uint256 _totalSupply = totalSupply;
+        (uint256 total0, uint256 total1) = _getTotals();
+
+        (amountOut0, amountOut1) = PairLogic.getDualSidedBurnOutputAmounts(_totalSupply, liquidityIn, total0, total1);
+
+        _burn(msg.sender, liquidityIn);
+        SafeERC20.safeTransfer(IERC20(token0), to, amountOut0);
+        SafeERC20.safeTransfer(IERC20(token1), to, amountOut1);
+        emit Burn(msg.sender, liquidityIn, amountOut0, amountOut1, to);
+    }
+
+    /**
+     * @inheritdoc IRebaseXPair
+     */
+    function burnFromReservoir(uint256 liquidityIn, address to)
+        external
+        lock
+        checkPaused
+        singleSidedTimelock
+        sendOrRefundFee
+        returns (uint256 amountOut0, uint256 amountOut1)
+    {
+        uint256 _totalSupply = totalSupply;
+        (uint256 total0, uint256 total1) = _getTotals();
+        // Determine current pool liquidity
+        LiquidityBalances memory lb = _getLiquidityBalances(total0, total1);
+        if (lb.pool0 == 0 || lb.pool1 == 0) {
+            revert InsufficientLiquidity();
+        }
+        if (lb.reservoir0 == 0) {
+            // If reservoir0 is empty then we're swapping amountOut0 for token1 from reservoir1
+            uint256 swappedReservoirAmount1;
+            (amountOut1, swappedReservoirAmount1) = PairLogic.getSingleSidedBurnOutputAmountB(
+                _totalSupply, liquidityIn, total0, total1, movingAveragePrice0()
+            );
+            // Check there's enough reservoir liquidity to withdraw from
+            // If `amountOut1` exceeds reservoir1 then it will result in reservoir0 growing from excess token0
+            if (amountOut1 > lb.reservoir1) {
+                revert InsufficientReservoir();
+            }
+
+            uint256 swappableReservoirLimit = _getSwappableReservoirLimit(lb.pool1);
+            if (swappedReservoirAmount1 > swappableReservoirLimit) {
+                revert SwappableReservoirExceeded();
+            }
+            _updateSwappableReservoirDeadline(lb.pool1, swappedReservoirAmount1);
+        } else {
+            // If reservoir0 isn't empty then we're swapping amountOut1 for token0 from reservoir0
+            uint256 swappedReservoirAmount0;
+            (amountOut0, swappedReservoirAmount0) = PairLogic.getSingleSidedBurnOutputAmountA(
+                _totalSupply, liquidityIn, total0, total1, movingAveragePrice0()
+            );
+            // Check there's enough reservoir liquidity to withdraw from
+            // If `amountOut0` exceeds reservoir0 then it will result in reservoir1 growing from excess token1
+            if (amountOut0 > lb.reservoir0) {
+                revert InsufficientReservoir();
+            }
+
+            uint256 swappableReservoirLimit = _getSwappableReservoirLimit(lb.pool0);
+            if (swappedReservoirAmount0 > swappableReservoirLimit) {
+                revert SwappableReservoirExceeded();
+            }
+            _updateSwappableReservoirDeadline(lb.pool0, swappedReservoirAmount0);
+        }
+        _burn(msg.sender, liquidityIn);
+        if (amountOut0 > 0) {
+            SafeERC20.safeTransfer(IERC20(token0), to, amountOut0);
+        } else if (amountOut1 > 0) {
+            SafeERC20.safeTransfer(IERC20(token1), to, amountOut1);
+        } else {
+            revert InsufficientLiquidityBurned();
+        }
+        emit Burn(msg.sender, liquidityIn, amountOut0, amountOut1, to);
     }
 }
