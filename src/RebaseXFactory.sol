@@ -204,4 +204,38 @@ contract RebaseXFactory is IRebaseXFactory {
         allPairs.push(pair);
         emit PairCreated(token0, token1, plBps, feeBps, pair, allPairs.length);
     }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setFeeTo(address _feeTo) external onlyPermissionSetter(feeToSetter) {
+        feeTo = _feeTo;
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setFeeToSetter(address _feeToSetter) external onlyPermissionSetter(feeToSetter) {
+        feeToSetter = _feeToSetter;
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setIsCreationRestricted(bool _isCreationRestricted)
+        external
+        onlyPermissionSetter(isCreationRestrictedSetter)
+    {
+        isCreationRestricted = _isCreationRestricted;
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setIsCreationRestrictedSetter(address _isCreationRestrictedSetter)
+        external
+        onlyPermissionSetter(isCreationRestrictedSetter)
+    {
+        isCreationRestrictedSetter = _isCreationRestrictedSetter;
+    }
 }
