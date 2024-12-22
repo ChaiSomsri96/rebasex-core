@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {IRebaseXFactory} from "./interfaces/IRebaseXFactory/IRebaseXFactory.sol";
 import {IRebaseXFactoryHelper} from "./interfaces/IRebaseXFactory/IRebaseXFactoryHelper.sol";
+import {IRebaseXPair} from "./interfaces/IRebaseXPair/IRebaseXPair.sol";
 
 contract RebaseXFactory is IRebaseXFactory {
     /**
@@ -237,5 +238,101 @@ contract RebaseXFactory is IRebaseXFactory {
         onlyPermissionSetter(isCreationRestrictedSetter)
     {
         isCreationRestrictedSetter = _isCreationRestrictedSetter;
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setIsPaused(address[] calldata pairs, bool isPausedNew) external onlyPermissionSetter(isPausedSetter) {
+        uint256 length = pairs.length;
+        for (uint256 i; i < length; ++i) {
+            IRebaseXPair(pairs[i]).setIsPaused(isPausedNew);
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setIsPausedSetter(address _isPausedSetter) external onlyPermissionSetter(isPausedSetter) {
+        isPausedSetter = _isPausedSetter;
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setParamSetter(address _paramSetter) external onlyPermissionSetter(paramSetter) {
+        paramSetter = _paramSetter;
+    }
+
+    function _validateNewMovingAverageWindow(uint32 newMovingAverageWindow) internal pure {
+        if (newMovingAverageWindow < MIN_MOVING_AVERAGE_WINDOW_BOUND || newMovingAverageWindow > MAX_DURATION_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _validateNewMaxVolatilityBps(uint16 newMaxVolatilityBps) internal pure {
+        if (newMaxVolatilityBps > MAX_BPS_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _validateNewMinTimelockDuration(uint32 newMinTimelockDuration) internal pure {
+        if (newMinTimelockDuration > MAX_DURATION_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _validateNewMaxTimelockDuration(uint32 newMaxTimelockDuration) internal pure {
+        if (newMaxTimelockDuration > MAX_DURATION_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _validateNewMaxSwappableReservoirLimitBps(uint32 newMaxSwappableReservoirLimitBps) internal pure {
+        if (newMaxSwappableReservoirLimitBps > MAX_BPS_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _validateNewSwappableReservoirGrowthWindow(uint32 newSwappableReservoirGrowthWindow) internal pure {
+        if (
+            newSwappableReservoirGrowthWindow < MIN_SWAPPABLE_RESERVOIR_GROWTH_WINDOW_BOUND
+                || newSwappableReservoirGrowthWindow > MAX_DURATION_BOUND
+        ) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _validateNewProtocolFeeMbps(uint24 newProtocolFeeMbps) internal pure {
+        if (newProtocolFeeMbps > MAX_MBPS_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    /**
+     * @dev `minBasinDuration` must be in interval [0, MAX_DURATION_BOUND]
+     */
+    function _validateNewMinBasinDuration(uint32 newMinBasinDuration) internal pure {
+        if (newMinBasinDuration > MAX_DURATION_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    /**
+     * @dev `maxBasinDuration` must be in interval [0, MAX_DURATION_BOUND]
+     */
+    function _validateNewMaxBasinDuration(uint32 newMaxBasinDuration) internal pure {
+        if (newMaxBasinDuration > MAX_DURATION_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    /**
+     * @dev `pLBPS` must be in interval [0, MAX_BPS_BOUND). pL cannot equal 1.
+     */
+    function _validateNewPlBps(uint32 newPlBps) internal pure {
+        if (newPlBps >= MAX_BPS_BOUND) {
+            revert InvalidParameter();
+        }
     }
 }
