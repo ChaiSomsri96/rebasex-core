@@ -335,4 +335,157 @@ contract RebaseXFactory is IRebaseXFactory {
             revert InvalidParameter();
         }
     }
+
+    function _validateNewFeeBps(uint16 newFeeBps) internal pure {
+        if (newFeeBps > MAX_BPS_BOUND) {
+            revert InvalidParameter();
+        }
+    }
+
+    function _addSupportedCategory(uint16 plBps, uint16 feeBps) internal {
+        for (uint256 i = 0; i < supportedCategories.length; i++) {
+            if (supportedCategories[i].plBps == plBps && supportedCategories[i].feeBps == feeBps) {
+                return;
+            }
+        }
+        supportedCategories.push(CategoryParameters(plBps, feeBps));
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setDefaultParameters(
+        uint16 plBps,
+        uint16 feeBps,
+        uint32 defaultMovingAverageWindow,
+        uint16 defaultMaxVolatilityBps,
+        uint32 defaultMinTimelockDuration,
+        uint32 defaultMaxTimelockDuration,
+        uint16 defaultMaxSwappableReservoirLimitBps,
+        uint32 defaultSwappableReservoirGrowthWindow,
+        uint24 defaultProtocolFeeMbps,
+        uint32 defaultMinBasinDuration,
+        uint32 defaultMaxBasinDuration
+    ) external override onlyPermissionSetter(paramSetter) {
+        // Validate keys
+        _validateNewPlBps(plBps);
+        _validateNewFeeBps(feeBps);
+        // Validate values
+        _validateNewMovingAverageWindow(defaultMovingAverageWindow);
+        _validateNewMaxVolatilityBps(defaultMaxVolatilityBps);
+        _validateNewMinTimelockDuration(defaultMinTimelockDuration);
+        _validateNewMaxTimelockDuration(defaultMaxTimelockDuration);
+        _validateNewMaxSwappableReservoirLimitBps(defaultMaxSwappableReservoirLimitBps);
+        _validateNewSwappableReservoirGrowthWindow(defaultSwappableReservoirGrowthWindow);
+        _validateNewProtocolFeeMbps(defaultProtocolFeeMbps);
+        _validateNewMinBasinDuration(defaultMinBasinDuration);
+        _validateNewMaxBasinDuration(defaultMaxBasinDuration);
+
+        // Add entry to defaultPairCreationParameters
+        defaultPairCreationParameters[plBps][feeBps] = PairCreationParameters(
+            defaultMovingAverageWindow,
+            defaultMaxVolatilityBps,
+            defaultMinTimelockDuration,
+            defaultMaxTimelockDuration,
+            defaultMaxSwappableReservoirLimitBps,
+            defaultSwappableReservoirGrowthWindow,
+            defaultProtocolFeeMbps,
+            defaultMinBasinDuration,
+            defaultMaxBasinDuration
+        );
+
+        // Add (plBps, feeBps) to supported categories list if not already present
+        _addSupportedCategory(plBps, feeBps);
+
+        emit DefaultParametersUpdated(
+            msg.sender,
+            plBps,
+            feeBps,
+            defaultMovingAverageWindow,
+            defaultMaxVolatilityBps,
+            defaultMinTimelockDuration,
+            defaultMaxTimelockDuration,
+            defaultMaxSwappableReservoirLimitBps,
+            defaultSwappableReservoirGrowthWindow,
+            defaultProtocolFeeMbps,
+            defaultMinBasinDuration,
+            defaultMaxBasinDuration
+        );
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function removeDefaultParameters(uint16 plBps, uint16 feeBps) external override onlyPermissionSetter(paramSetter) {
+        // Validate pair is supported
+        _validateCategoryParameters(plBps, feeBps);
+
+        // Remove entry from defaultPairCreationParameters
+        delete defaultPairCreationParameters[plBps][feeBps];
+
+        // Remove (plBps, feeBps) from supported categories list
+        for (uint256 i = 0; i < supportedCategories.length; i++) {
+            if (supportedCategories[i].plBps == plBps && supportedCategories[i].feeBps == feeBps) {
+                supportedCategories[i] = supportedCategories[supportedCategories.length - 1];
+                supportedCategories.pop();
+                break;
+            }
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setMovingAverageWindow(address[] calldata pairs, uint32 newMovingAverageWindow)
+        external
+        onlyPermissionSetter(paramSetter)
+    {
+        _validateNewMovingAverageWindow(newMovingAverageWindow);
+        uint256 length = pairs.length;
+        for (uint256 i; i < length; ++i) {
+            IRebaseXPair(pairs[i]).setMovingAverageWindow(newMovingAverageWindow);
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setMaxVolatilityBps(address[] calldata pairs, uint16 newMaxVolatilityBps)
+        external
+        onlyPermissionSetter(paramSetter)
+    {
+        _validateNewMaxVolatilityBps(newMaxVolatilityBps);
+        uint256 length = pairs.length;
+        for (uint256 i; i < length; ++i) {
+            IRebaseXPair(pairs[i]).setMaxVolatilityBps(newMaxVolatilityBps);
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setMinTimelockDuration(address[] calldata pairs, uint32 newMinTimelockDuration)
+        external
+        onlyPermissionSetter(paramSetter)
+    {
+        _validateNewMinTimelockDuration(newMinTimelockDuration);
+        uint256 length = pairs.length;
+        for (uint256 i; i < length; ++i) {
+            IRebaseXPair(pairs[i]).setMinTimelockDuration(newMinTimelockDuration);
+        }
+    }
+
+    /**
+     * @inheritdoc IRebaseXFactory
+     */
+    function setMaxTimelockDuration(address[] calldata pairs, uint32 newMaxTimelockDuration)
+        external
+        onlyPermissionSetter(paramSetter)
+    {
+        _validateNewMaxTimelockDuration(newMaxTimelockDuration);
+        uint256 length = pairs.length;
+        for (uint256 i; i < length; ++i) {
+            IRebaseXPair(pairs[i]).setMaxTimelockDuration(newMaxTimelockDuration);
+        }
+    }
 }
